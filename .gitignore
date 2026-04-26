@@ -1,0 +1,38 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# Logs
+*.log
+logs/
+
+# Build artifacts (none expected for static site, but defensive)
+dist/
+build/
+.cache/
+.parcel-cache/
+node_modules/
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Python (used for one-off data prep scripts)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Generated / scratch
+*.tmp
+scratch/
+local-notes/
