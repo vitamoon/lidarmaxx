@@ -146,15 +146,23 @@ export const SCENARIOS = {
   spoofing_attack: {
     id: 'spoofing_attack',
     name: 'Sensor attack',
-    blurb: 'Same studio. Adversary injects fake returns.',
-    // Inherits the home scenario at boot via the controls layer.
-    bounds: { min: [-4, 0, -4], max: [4, 3, 4] },
-    statics: [],
-    dynamics: [],
-    agent: { mode: 'static', speed: 0, radius: 0.2, height: 0.3 },
-    sensor: { hSamples: 540, vChannels: 12, maxRange: 7, height: 0.40 },
-    zones: [],
+    blurb: 'Studio under LiDAR injection attack.',
     inheritsFrom: 'home_at_night',
-    attack: { spoof: true, injectCount: 240 },
+    autoEnableSpoof: true,
   },
 };
+
+/**
+ * Resolve a scenario by id, applying parent-inheritance. Children may
+ * override any field; arrays are *replaced* rather than merged so the
+ * intent is unambiguous.
+ */
+export function resolveScenario(id) {
+  const sc = SCENARIOS[id];
+  if (!sc) return null;
+  if (sc.inheritsFrom) {
+    const parent = resolveScenario(sc.inheritsFrom);
+    return { ...parent, ...sc };
+  }
+  return sc;
+}

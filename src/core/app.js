@@ -37,7 +37,7 @@ export class App {
     const { SceneSim }         = await import('../sim/scene.js');
     const { LidarSensor }      = await import('../sim/lidar.js');
     const { Agent }            = await import('../sim/agent.js');
-    const { SCENARIOS }        = await import('../sim/scenarios.js');
+    const { SCENARIOS, resolveScenario } = await import('../sim/scenarios.js');
     const { VoxelGrid }        = await import('../perception/voxelgrid.js');
     const { dbscan }           = await import('../perception/dbscan.js');
     const { Tracker }          = await import('../perception/tracker.js');
@@ -50,8 +50,10 @@ export class App {
     const { Telemetry }        = await import('../ui/telemetry.js');
     const { Alerts }           = await import('../ui/alerts.js');
 
+    this._resolveScenario = resolveScenario;
+
     // ── World + agent + sensor
-    this.scenario = SCENARIOS.home_at_night;
+    this.scenario = resolveScenario('home_at_night');
     this.scene = new SceneSim(this.THREE, this.scenario);
     this.agent = new Agent(this.scenario.agent);
     this.sensor = new LidarSensor(this.scenario.sensor);
@@ -100,7 +102,7 @@ export class App {
   }
 
   loadScenario(id) {
-    const next = (this.controls.scenarios?.[id]) ?? null;
+    const next = this._resolveScenario(id);
     if (!next) return;
     this.scenario = next;
     this.scene.replaceWith(next);
@@ -110,7 +112,13 @@ export class App {
     for (const z of next.zones ?? []) this.constraints.add(z);
     this.controls.refreshZones(this.constraints.zones());
     this.audit.reset();
+    this.tracker.reset();
+    this.spoof.reset();
     this.renderer.refit();
+    if (next.autoEnableSpoof) {
+      const cb = document.getElementById('attack-spoof');
+      if (cb && !cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+    }
   }
 
   _loop = () => {
@@ -179,8 +187,13 @@ export class App {
       spoof: spoofResult,
       auditCount: this.audit.length,
       auditHead: event.hash,
-      auditOk: this.audit.verify(),
+      // Verifying the entire chain every tick is O(N); we only do it
+      // once a second so even a long-running session stays cheap.
+      auditOk: (this._auditCheckTick = (this._auditCheckTick ?? 0) + 1) % this.tickHz === 0
+        ? (this._auditOk = this.audit.verify())
+        : (this._auditOk ?? true),
     });
+    this.telemetry.pushDecisions(decisions);
     this.alerts.ingest(decisions, spoofResult);
 
     // 9. render-side data handoff
