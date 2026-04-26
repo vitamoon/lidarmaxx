@@ -10,9 +10,12 @@
  */
 
 export class App {
-  constructor({ THREE, OrbitControls }) {
+  constructor({ THREE, OrbitControls, build = 'dev' }) {
     this.THREE = THREE;
     this.OrbitControls = OrbitControls;
+    this.build = build;
+    // See main.js for why we propagate the build tag through dynamic imports.
+    this._v = (p) => build === 'dev' ? p : `${p}?v=${build}`;
 
     this.tickHz = 20;                    // perception loop rate
     this.tickMs = 1000 / this.tickHz;
@@ -34,21 +37,22 @@ export class App {
     // boot screen text can update between stages on slow networks.
     setHealth('booting', 'warn');
 
-    const { SceneSim }         = await import('../sim/scene.js');
-    const { LidarSensor }      = await import('../sim/lidar.js');
-    const { Agent }            = await import('../sim/agent.js');
-    const { SCENARIOS, resolveScenario } = await import('../sim/scenarios.js');
-    const { VoxelGrid }        = await import('../perception/voxelgrid.js');
-    const { dbscan }           = await import('../perception/dbscan.js');
-    const { Tracker }          = await import('../perception/tracker.js');
-    const { SpoofDetector }    = await import('../perception/spoof.js');
-    const { ConstraintEngine } = await import('../constraints/engine.js');
-    const { ConstraintPainter } = await import('../constraints/painter.js');
-    const { AuditLog }         = await import('../audit/log.js');
-    const { Renderer }         = await import('../render/renderer.js');
-    const { Controls }         = await import('../ui/controls.js');
-    const { Telemetry }        = await import('../ui/telemetry.js');
-    const { Alerts }           = await import('../ui/alerts.js');
+    const v = this._v;
+    const { SceneSim }         = await import(v('../sim/scene.js'));
+    const { LidarSensor }      = await import(v('../sim/lidar.js'));
+    const { Agent }            = await import(v('../sim/agent.js'));
+    const { SCENARIOS, resolveScenario } = await import(v('../sim/scenarios.js'));
+    const { VoxelGrid }        = await import(v('../perception/voxelgrid.js'));
+    const { dbscan }           = await import(v('../perception/dbscan.js'));
+    const { Tracker }          = await import(v('../perception/tracker.js'));
+    const { SpoofDetector }    = await import(v('../perception/spoof.js'));
+    const { ConstraintEngine } = await import(v('../constraints/engine.js'));
+    const { ConstraintPainter } = await import(v('../constraints/painter.js'));
+    const { AuditLog }         = await import(v('../audit/log.js'));
+    const { Renderer }         = await import(v('../render/renderer.js'));
+    const { Controls }         = await import(v('../ui/controls.js'));
+    const { Telemetry }        = await import(v('../ui/telemetry.js'));
+    const { Alerts }           = await import(v('../ui/alerts.js'));
 
     this._resolveScenario = resolveScenario;
     // dbscan is the only standalone function used by _tick; constructors

@@ -20,12 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Stamp build hash into index.html
-        # We embed the short SHA into the page so the build pill in the
-        # top-right shows what's actually deployed. Failing to stamp is
-        # not a deploy-blocker — the page falls back to a wall-clock id.
+        # The short SHA gets sed-stamped into three places:
+        #   1. The build pill in the top-right (visual confirmation of
+        #      which commit is live).
+        #   2. The cache-buster on the entry script tag (`?v=__BUILD__`).
+        #   3. The cache-buster on the stylesheet (same).
+        # Without (2)+(3) the GitHub Pages 10-min cache TTL serves stale
+        # modules after a push and users see ghost errors that don't
+        # match the on-disk source.
         run: |
           SHA=$(git rev-parse --short HEAD)
-          sed -i "s|<span id=\"build-hash\">—</span>|<span id=\"build-hash\">${SHA}</span>|" index.html || true
+          sed -i "s|<span id=\"build-hash\">—</span>|<span id=\"build-hash\">${SHA}</span>|" index.html
+          sed -i "s|__BUILD__|${SHA}|g" index.html
+          echo "Stamped SHA=${SHA} into index.html"
+          grep -E "(build-hash|__BUILD__|\\?v=)" index.html || true
       # First-time setup: in the repo's Settings → Pages, set
       # "Source: GitHub Actions". After that this workflow deploys
       # automatically on every push to main.

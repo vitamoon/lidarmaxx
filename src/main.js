@@ -12,17 +12,6 @@ const bootSub = document.getElementById('boot-sub');
 const bootEl  = document.getElementById('boot');
 const buildEl = document.getElementById('build-hash');
 
-// Build hash. Three sources, in priority:
-//   1. CI sed-stamps the short SHA into the placeholder span at deploy time.
-//   2. URL fragment ?build=<hash> wins for ad-hoc overrides.
-//   3. Local dev: wall-clock minute as a "session id" so successive
-//      screenshots are distinguishable from each other.
-const stamped = buildEl.textContent.trim();
-const fromHash = location.hash.match(/build=([a-z0-9]{6,})/i)?.[1];
-buildEl.textContent =
-  fromHash ??
-  (stamped && stamped !== '—' ? stamped : new Date().toISOString().slice(11, 16).replace(':', ''));
-
 const stage = (label) => { bootSub.textContent = label; };
 
 // Surface boot failures on-screen as well as in the console — a blank
@@ -38,6 +27,17 @@ const fail = (where, err) => {
 window.addEventListener('error', (e) => fail('window error', e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => fail('unhandled rejection', e.reason));
 
+// Cache-bust every dynamic import with the build hash from this
+// script's URL. CI stamps `?v=<short-sha>` into index.html; without
+// this, GitHub Pages's 10-minute cache TTL serves stale modules after
+// a push and you see ghost errors that don't match the on-disk source.
+const BUILD_RAW = new URL(import.meta.url).searchParams.get('v');
+const BUILD = (BUILD_RAW && BUILD_RAW !== '__BUILD__') ? BUILD_RAW : 'dev';
+const v = (p) => `${p}?v=${BUILD}`;
+buildEl.textContent = (BUILD !== 'dev')
+  ? BUILD
+  : new Date().toISOString().slice(11, 16).replace(':', '');
+
 try {
   stage('loading three.js');
   const THREE = await import('three');
@@ -46,10 +46,10 @@ try {
   const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
   stage('loading app');
-  const { App } = await import('./core/app.js');
+  const { App } = await import(v('./core/app.js'));
 
   stage('constructing app');
-  const app = new App({ THREE, OrbitControls });
+  const app = new App({ THREE, OrbitControls, build: BUILD });
 
   stage('initializing perception');
   await app.boot();
