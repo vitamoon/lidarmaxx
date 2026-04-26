@@ -20,20 +20,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Stamp build hash into index.html
-        # The short SHA gets sed-stamped into three places:
-        #   1. The build pill in the top-right (visual confirmation of
-        #      which commit is live).
-        #   2. The cache-buster on the entry script tag (`?v=__BUILD__`).
-        #   3. The cache-buster on the stylesheet (same).
-        # Without (2)+(3) the GitHub Pages 10-min cache TTL serves stale
-        # modules after a push and users see ghost errors that don't
-        # match the on-disk source.
+        # The short SHA gets stamped in three places: the build pill,
+        # the script tag cache-buster, and the stylesheet cache-buster.
+        # Without the cache-busters, GitHub Pages's 10-minute TTL serves
+        # stale modules after a push.
         run: |
+          set -e
           SHA=$(git rev-parse --short HEAD)
-          sed -i "s|<span id=\"build-hash\">—</span>|<span id=\"build-hash\">${SHA}</span>|" index.html
-          sed -i "s|__BUILD__|${SHA}|g" index.html
-          echo "Stamped SHA=${SHA} into index.html"
-          grep -E "(build-hash|__BUILD__|\\?v=)" index.html || true
+          echo "::group::before"
+          grep -nE "(build-hash|__BUILD__)" index.html || true
+          echo "::endgroup::"
+          # Use python for substitution to dodge sed's locale/charset
+          # quirks with the em-dash in the build-pill placeholder.
+          python3 - <<PY
+          import re
+          path = 'index.html'
+          src = open(path, encoding='utf-8').read()
+          src = src.replace('__BUILD__', '${SHA}')
+          src = re.sub(
+              r'<span id="build-hash">[^<]*</span>',
+              f'<span id="build-hash">${SHA}</span>',
+              src, count=1)
+          open(path, 'w', encoding='utf-8').write(src)
+          PY
+          echo "::group::after"
+          grep -nE "(build-hash|__BUILD__|\\?v=)" index.html || true
+          echo "::endgroup::"
       # First-time setup: in the repo's Settings → Pages, set
       # "Source: GitHub Actions". After that this workflow deploys
       # automatically on every push to main.
