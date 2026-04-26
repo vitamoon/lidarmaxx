@@ -12,12 +12,16 @@ const bootSub = document.getElementById('boot-sub');
 const bootEl  = document.getElementById('boot');
 const buildEl = document.getElementById('build-hash');
 
-// Build hash from URL fragment if present (CI fills this on deploy);
-// otherwise show the wall-clock minute as a "session id" so screenshots are
-// distinguishable.
+// Build hash. Three sources, in priority:
+//   1. CI sed-stamps the short SHA into the placeholder span at deploy time.
+//   2. URL fragment ?build=<hash> wins for ad-hoc overrides.
+//   3. Local dev: wall-clock minute as a "session id" so successive
+//      screenshots are distinguishable from each other.
+const stamped = buildEl.textContent.trim();
+const fromHash = location.hash.match(/build=([a-z0-9]{6,})/i)?.[1];
 buildEl.textContent =
-  (location.hash.match(/build=([a-f0-9]{6,})/)?.[1]) ??
-  new Date().toISOString().slice(11, 16).replace(':', '');
+  fromHash ??
+  (stamped && stamped !== '—' ? stamped : new Date().toISOString().slice(11, 16).replace(':', ''));
 
 const stage = (label) => { bootSub.textContent = label; };
 
