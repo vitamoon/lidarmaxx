@@ -26,14 +26,10 @@ jobs:
         run: |
           SHA=$(git rev-parse --short HEAD)
           sed -i "s|<span id=\"build-hash\">—</span>|<span id=\"build-hash\">${SHA}</span>|" index.html || true
+      # First-time setup: in the repo's Settings → Pages, set
+      # "Source: GitHub Actions". After that this workflow deploys
+      # automatically on every push to main.
       - uses: actions/configure-pages@v5
-        with:
-          # Auto-enable Pages on first run so the deploy doesn't require
-          # a manual Settings → Pages click. Needs the workflow to have
-          # `pages: write` (we set it above) and the repo's default token
-          # to have `repository-projects: read` (default-on for personal
-          # repos).
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
