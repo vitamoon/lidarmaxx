@@ -51,6 +51,9 @@ export class App {
     const { Alerts }           = await import('../ui/alerts.js');
 
     this._resolveScenario = resolveScenario;
+    // dbscan is the only standalone function used by _tick; constructors
+    // and instances are already pinned via `this.x = new X()`.
+    this._dbscan = dbscan;
 
     // ── World + agent + sensor
     this.scenario = resolveScenario('home_at_night');
@@ -159,7 +162,7 @@ export class App {
 
     // 4. voxelize + cluster
     this.voxel.replace(sweep.points);
-    const clusters = dbscan(sweep.points, this.voxel, /*eps*/ 0.35, /*minPts*/ 4);
+    const clusters = this._dbscan(sweep.points, this.voxel, /*eps*/ 0.35, /*minPts*/ 4);
 
     // 5. track
     const tracks = this.tracker.update(clusters, dt);
