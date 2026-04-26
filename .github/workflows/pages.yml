@@ -20,32 +20,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Stamp build hash into index.html
-        # The short SHA gets stamped in three places: the build pill,
-        # the script tag cache-buster, and the stylesheet cache-buster.
-        # Without the cache-busters, GitHub Pages's 10-minute TTL serves
-        # stale modules after a push.
+        # The short SHA gets stamped in two places: the build pill, and
+        # the cache-buster query (`?v=__BUILD__`) on the script + CSS
+        # tags. Without the cache-buster, GitHub Pages's 10-min TTL
+        # serves stale modules after each push.
+        #
+        # Implemented as a checked-in Node script so any failure surfaces
+        # as a real error (set -e + script-level assertions) instead of a
+        # silent no-op like our earlier sed/heredoc attempts.
         run: |
           set -e
-          SHA=$(git rev-parse --short HEAD)
-          echo "::group::before"
-          grep -nE "(build-hash|__BUILD__)" index.html || true
-          echo "::endgroup::"
-          # Use python for substitution to dodge sed's locale/charset
-          # quirks with the em-dash in the build-pill placeholder.
-          python3 - <<PY
-          import re
-          path = 'index.html'
-          src = open(path, encoding='utf-8').read()
-          src = src.replace('__BUILD__', '${SHA}')
-          src = re.sub(
-              r'<span id="build-hash">[^<]*</span>',
-              f'<span id="build-hash">${SHA}</span>',
-              src, count=1)
-          open(path, 'w', encoding='utf-8').write(src)
-          PY
-          echo "::group::after"
-          grep -nE "(build-hash|__BUILD__|\\?v=)" index.html || true
-          echo "::endgroup::"
+          SHA="$(git rev-parse --short HEAD)"
+          node scripts/stamp-build.mjs "$SHA"
       # First-time setup: in the repo's Settings → Pages, set
       # "Source: GitHub Actions". After that this workflow deploys
       # automatically on every push to main.
