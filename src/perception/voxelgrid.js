@@ -18,10 +18,16 @@ export class VoxelGrid {
   }
 
   _key(ix, iy, iz) {
-    // Pack three signed 21-bit integers into a JS number-safe integer.
-    // Range: ±2^20 cells → ±~210 km at 0.2 m cells. Plenty.
-    const BIAS = 1 << 20;
-    return ((ix + BIAS) * 0x200000 + (iy + BIAS)) * 0x200000 + (iz + BIAS);
+    // Pack three signed 15-bit integers into a JS number-safe integer.
+    // Bit budget: 3 × 15 = 45 bits, well under Number.MAX_SAFE_INTEGER
+    // (2^53 — 1). The earlier 21-bit version produced keys up to 2^63
+    // and silently collapsed adjacent Z cells together because the LSB
+    // was below double-precision representable distance — every voxel
+    // collided into one giant bucket and DBSCAN turned into O(N²).
+    // Range: ±2^14 cells → ±3.27 km at 0.2 m cells. Plenty.
+    const BIAS = 1 << 14;          // 16384
+    const M    = 1 << 15;          // 32768
+    return ((ix + BIAS) * M + (iy + BIAS)) * M + (iz + BIAS);
   }
 
   replace(points) {
