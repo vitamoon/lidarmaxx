@@ -11,11 +11,14 @@
   <meta property="og:url" content="https://vitamoon.github.io/lidarmaxx/" />
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
   <!--
-    GitHub Pages serves with cache-control: max-age=600. The ?v=__BUILD__
-    query is stamped to the short SHA at deploy time so every push busts
-    the user's cache automatically. Falls back to "dev" locally.
+    GitHub Pages's edge cache has a 10-minute TTL, so we bust caches
+    via `?v=<wall-clock>` chosen at parse time. Static-import-only
+    modules (math.js, sdf.js, scenarios.js) still inherit the parent
+    module's URL without the query, but they change rarely enough that
+    a hard-refresh (Ctrl+Shift+R) or an incognito window covers it.
   -->
-  <link rel="stylesheet" href="styles/main.css?v=__BUILD__" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script>window.__PENUMBRA_BUILD__ = String(Date.now());</script>
 
   <script type="importmap">
   {
@@ -224,6 +227,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=__BUILD__"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

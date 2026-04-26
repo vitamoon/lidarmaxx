@@ -27,16 +27,15 @@ const fail = (where, err) => {
 window.addEventListener('error', (e) => fail('window error', e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => fail('unhandled rejection', e.reason));
 
-// Cache-bust every dynamic import with the build hash from this
-// script's URL. CI stamps `?v=<short-sha>` into index.html; without
-// this, GitHub Pages's 10-minute cache TTL serves stale modules after
-// a push and you see ghost errors that don't match the on-disk source.
-const BUILD_RAW = new URL(import.meta.url).searchParams.get('v');
-const BUILD = (BUILD_RAW && BUILD_RAW !== '__BUILD__') ? BUILD_RAW : 'dev';
+// Cache-bust dynamic imports with a wall-clock value chosen on every
+// page load. GitHub Pages's edge cache has a 10-minute TTL; without
+// this you hit ghost errors from a previous deploy's modules that
+// don't match the on-disk source. The token is picked in inline JS
+// in index.html (window.__PENUMBRA_BUILD__) so it is set before this
+// module is even fetched.
+const BUILD = window.__PENUMBRA_BUILD__ ?? String(Date.now());
 const v = (p) => `${p}?v=${BUILD}`;
-buildEl.textContent = (BUILD !== 'dev')
-  ? BUILD
-  : new Date().toISOString().slice(11, 16).replace(':', '');
+buildEl.textContent = new Date().toISOString().slice(11, 16).replace(':', '');
 
 try {
   stage('loading three.js');

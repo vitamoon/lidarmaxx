@@ -19,19 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Stamp build hash into index.html
-        # The short SHA gets stamped in two places: the build pill, and
-        # the cache-buster query (`?v=__BUILD__`) on the script + CSS
-        # tags. Without the cache-buster, GitHub Pages's 10-min TTL
-        # serves stale modules after each push.
-        #
-        # Implemented as a checked-in Node script so any failure surfaces
-        # as a real error (set -e + script-level assertions) instead of a
-        # silent no-op like our earlier sed/heredoc attempts.
-        run: |
-          set -e
-          SHA="$(git rev-parse --short HEAD)"
-          node scripts/stamp-build.mjs "$SHA"
+      # Cache busting is now handled at runtime — index.html sets
+      # window.__PENUMBRA_BUILD__ to Date.now() on every load, and
+      # main.js propagates that as `?v=` on every dynamic import. No
+      # build-time stamping needed.
       # First-time setup: in the repo's Settings → Pages, set
       # "Source: GitHub Actions". After that this workflow deploys
       # automatically on every push to main.
