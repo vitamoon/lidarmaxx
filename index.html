@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Penumbra — 360° spatial alignment for embodied AI</title>
+  <meta name="description" content="A real-time, formally-checkable spatial constitution for embodied AI agents. LiDAR-driven, browser-only reference implementation." />
+  <meta property="og:title" content="Penumbra — 360° spatial alignment for embodied AI" />
+  <meta property="og:description" content="The missing safety layer for AI systems that move through physical space." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://vitamoon.github.io/lidarmaxx/" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles/main.css" />
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-theme="penumbra">
+
+  <!-- Top bar -->
+  <header class="topbar" role="banner">
+    <div class="topbar__brand">
+      <svg class="topbar__logo" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <circle cx="12" cy="12" r="5"  fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <circle cx="12" cy="12" r="1.4" fill="currentColor"/>
+      </svg>
+      <span class="topbar__name">Penumbra</span>
+      <span class="topbar__tag">360° spatial alignment for embodied AI</span>
+    </div>
+
+    <div class="topbar__meta">
+      <span class="pill pill--ok" id="health-pill">
+        <span class="pill__dot"></span>
+        <span id="health-label">initializing</span>
+      </span>
+      <span class="kbd">build <span id="build-hash">—</span></span>
+      <a class="topbar__link" href="https://github.com/vitamoon/lidarmaxx" target="_blank" rel="noopener">source</a>
+    </div>
+  </header>
+
+  <!-- Main app grid -->
+  <main class="app" role="main">
+
+    <!-- Left rail: controls -->
+    <aside class="rail rail--left" aria-label="Controls">
+
+      <section class="card" id="scenario-card">
+        <header class="card__header">
+          <h2 class="card__title">Scenario</h2>
+          <span class="card__hint">choose a deployment</span>
+        </header>
+        <div class="card__body">
+          <div class="scenario-grid" id="scenario-grid">
+            <!-- populated by ui/controls.js -->
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="zones-card">
+        <header class="card__header">
+          <h2 class="card__title">Constraint zones</h2>
+          <span class="card__hint">declare spatial intent</span>
+        </header>
+        <div class="card__body">
+          <div class="tool-row">
+            <button class="tool" data-tool="paint-hard" data-active="false">
+              <span class="tool__swatch tool__swatch--hard"></span>
+              <span class="tool__label">Hard zone</span>
+              <span class="tool__sub">must-not-enter</span>
+            </button>
+            <button class="tool" data-tool="paint-soft" data-active="false">
+              <span class="tool__swatch tool__swatch--soft"></span>
+              <span class="tool__label">Soft zone</span>
+              <span class="tool__sub">slow / penalize</span>
+            </button>
+            <button class="tool" data-tool="paint-trust" data-active="false">
+              <span class="tool__swatch tool__swatch--trust"></span>
+              <span class="tool__label">Trust zone</span>
+              <span class="tool__sub">explicitly allowed</span>
+            </button>
+            <button class="tool tool--ghost" data-tool="clear" data-active="false">
+              <span class="tool__label">Clear all</span>
+            </button>
+          </div>
+          <ul class="zone-list" id="zone-list" aria-live="polite">
+            <li class="zone-list__empty">No zones defined yet.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card" id="layers-card">
+        <header class="card__header">
+          <h2 class="card__title">Layers</h2>
+          <span class="card__hint">what's drawn</span>
+        </header>
+        <div class="card__body">
+          <label class="toggle"><input type="checkbox" id="layer-points" checked /><span>Point cloud</span></label>
+          <label class="toggle"><input type="checkbox" id="layer-clusters" checked /><span>Clusters &amp; boxes</span></label>
+          <label class="toggle"><input type="checkbox" id="layer-tracks" checked /><span>Track velocities</span></label>
+          <label class="toggle"><input type="checkbox" id="layer-zones" checked /><span>Constraint zones</span></label>
+          <label class="toggle"><input type="checkbox" id="layer-agent" checked /><span>Agent</span></label>
+          <label class="toggle"><input type="checkbox" id="layer-sensor" /><span>Sensor rays</span></label>
+        </div>
+      </section>
+
+      <section class="card" id="attack-card">
+        <header class="card__header">
+          <h2 class="card__title">Adversarial</h2>
+          <span class="card__hint">simulate sensor attack</span>
+        </header>
+        <div class="card__body">
+          <label class="toggle"><input type="checkbox" id="attack-spoof" /><span>Inject spoof points</span></label>
+          <label class="toggle"><input type="checkbox" id="attack-blind" /><span>Sector blinding</span></label>
+          <button class="btn btn--ghost" id="export-audit">Export audit log</button>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- Center: 3D viewport -->
+    <section class="viewport" aria-label="3D viewport">
+      <canvas id="viewport-canvas"></canvas>
+
+      <!-- Floating overlay HUD -->
+      <div class="hud hud--bottom-left" aria-hidden="true">
+        <div class="hud__row"><span class="hud__k">camera</span> <span class="hud__v" id="hud-cam">orbit</span></div>
+        <div class="hud__row"><span class="hud__k">sweep</span>  <span class="hud__v" id="hud-sweep">— Hz</span></div>
+        <div class="hud__row"><span class="hud__k">points</span> <span class="hud__v" id="hud-points">—</span></div>
+      </div>
+
+      <div class="hud hud--bottom-right">
+        <button class="hud__btn" id="cam-orbit"   title="Orbit camera">orbit</button>
+        <button class="hud__btn" id="cam-fpv"     title="First-person from agent">fpv</button>
+        <button class="hud__btn" id="cam-top"     title="Top-down">top</button>
+      </div>
+
+      <div id="alert-stack" class="alert-stack" aria-live="assertive"></div>
+    </section>
+
+    <!-- Right rail: telemetry -->
+    <aside class="rail rail--right" aria-label="Telemetry">
+
+      <section class="card" id="stats-card">
+        <header class="card__header">
+          <h2 class="card__title">Telemetry</h2>
+          <span class="card__hint">live</span>
+        </header>
+        <div class="card__body stats">
+          <div class="stat"><span class="stat__k">FPS</span>          <span class="stat__v" id="stat-fps">—</span></div>
+          <div class="stat"><span class="stat__k">tick</span>         <span class="stat__v" id="stat-tick">— ms</span></div>
+          <div class="stat"><span class="stat__k">points</span>       <span class="stat__v" id="stat-points">—</span></div>
+          <div class="stat"><span class="stat__k">clusters</span>     <span class="stat__v" id="stat-clusters">—</span></div>
+          <div class="stat"><span class="stat__k">tracks</span>       <span class="stat__v" id="stat-tracks">—</span></div>
+          <div class="stat"><span class="stat__k">violations</span>   <span class="stat__v" id="stat-viol">—</span></div>
+        </div>
+      </section>
+
+      <section class="card" id="spoof-card">
+        <header class="card__header">
+          <h2 class="card__title">Spoof score</h2>
+          <span class="card__hint">adversarial integrity</span>
+        </header>
+        <div class="card__body">
+          <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="meter__fill" id="spoof-fill"></div>
+          </div>
+          <div class="meter__caption" id="spoof-caption">nominal</div>
+        </div>
+      </section>
+
+      <section class="card card--grow" id="feed-card">
+        <header class="card__header">
+          <h2 class="card__title">Decision feed</h2>
+          <span class="card__hint">most recent</span>
+        </header>
+        <div class="card__body">
+          <ul class="feed" id="decision-feed" aria-live="polite">
+            <li class="feed__empty">Awaiting first sweep…</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card" id="audit-card">
+        <header class="card__header">
+          <h2 class="card__title">Audit chain</h2>
+          <span class="card__hint">tamper-evident</span>
+        </header>
+        <div class="card__body">
+          <div class="audit">
+            <div class="audit__row"><span class="audit__k">events</span> <span class="audit__v" id="audit-count">0</span></div>
+            <div class="audit__row"><span class="audit__k">head</span>   <span class="audit__v audit__hash" id="audit-head">—</span></div>
+            <div class="audit__row"><span class="audit__k">verified</span> <span class="audit__v" id="audit-verified">—</span></div>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+  </main>
+
+  <!-- Boot screen, removed once the renderer signals ready -->
+  <div id="boot" class="boot" role="status" aria-live="polite">
+    <div class="boot__inner">
+      <div class="boot__logo">
+        <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+          <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="14" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="3"  fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="boot__text">PENUMBRA</div>
+      <div class="boot__sub" id="boot-sub">initializing perception</div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
