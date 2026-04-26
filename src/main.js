@@ -25,17 +25,38 @@ buildEl.textContent =
 
 const stage = (label) => { bootSub.textContent = label; };
 
-stage('loading three.js');
-const THREE = await import('three');
+// Surface boot failures on-screen as well as in the console — a blank
+// boot screen is the worst possible failure mode at demo time.
+const fail = (where, err) => {
+  console.error(`[penumbra:boot] ${where}:`, err);
+  bootSub.style.color = '#ff5d6c';
+  bootSub.style.fontSize = '11px';
+  bootSub.style.maxWidth = '60ch';
+  bootSub.style.textAlign = 'center';
+  bootSub.textContent = `boot failed at "${where}" — ${err?.message ?? err}`;
+};
+window.addEventListener('error', (e) => fail('window error', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => fail('unhandled rejection', e.reason));
 
-stage('loading orbit controls');
-const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+try {
+  stage('loading three.js');
+  const THREE = await import('three');
 
-stage('initializing perception');
-const { App } = await import('./core/app.js');
+  stage('loading orbit controls');
+  const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
-const app = new App({ THREE, OrbitControls });
-await app.boot();
+  stage('loading app');
+  const { App } = await import('./core/app.js');
 
-// Hand off; from here the App owns the loop.
-requestAnimationFrame(() => bootEl.classList.add('is-hidden'));
+  stage('constructing app');
+  const app = new App({ THREE, OrbitControls });
+
+  stage('initializing perception');
+  await app.boot();
+
+  // Hand off; from here the App owns the loop.
+  requestAnimationFrame(() => bootEl.classList.add('is-hidden'));
+} catch (err) {
+  fail('boot', err);
+  throw err;
+}
